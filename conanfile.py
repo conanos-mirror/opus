@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from conans import ConanFile, tools, AutoToolsBuildEnvironment, MSBuild
+from conanos.build import config_scheme
 import os
 import shutil
 
@@ -9,21 +10,19 @@ import shutil
 class OpusConan(ConanFile):
     name = "opus"
     version = "1.2.1"
-    url = "https://opus-codec.org/"
     description = "Opus is a totally open, royalty-free, highly versatile audio codec."
-
-    license = "BSD 3-Clause"
+    url = "https://github.com/conanos/opus"
     homepage = "https://opus-codec.org"
+    license = "BSD 3-Clause"
     exports = ["LICENSE.md"]
     exports_sources = ["FindOPUS.cmake"]
-
+    generators = "gcc","visual_studio"
     settings = "os", "arch", "compiler", "build_type"
     options = {"shared": [True, False], "fPIC": [True, False], "fixed_point": [True, False]}
     default_options = "shared=True", "fPIC=True", "fixed_point=False"
-
-    # Custom attributes for Bincrafters recipe conventions
-    source_subfolder = "sources"
-    install_subfolder = "install"
+    
+    _source_subfolder = "source_subfolder"
+    _build_subfolder = "build_subfolder"
 
     def configure(self):
         del self.settings.compiler.libcxx
@@ -43,9 +42,9 @@ class OpusConan(ConanFile):
         source_url = "https://archive.mozilla.org/pub/opus"
         tools.get("{0}/{1}-{2}.tar.gz".format(source_url, self.name, self.version))
         extracted_dir = self.name + "-" + self.version
-        os.rename(extracted_dir, self.source_subfolder)
+        os.rename(extracted_dir, self._source_subfolder)
         # exclude opus_compare.c from build (it has main function)
-        with tools.chdir(os.path.join(self.source_subfolder, 'win32', 'VS2015')):
+        with tools.chdir(os.path.join(self._source_subfolder, 'win32', 'VS2015')):
             tools.replace_in_file('opus.vcxproj',
                                   '    <ClCompile Include="..\\..\\src\\opus_compare.c">\n'
                                   '      <DisableSpecificWarnings>4244;%(DisableSpecificWarnings)'
@@ -59,7 +58,7 @@ class OpusConan(ConanFile):
         return self.options.fixed_point
 
     def build_msvc(self):
-        with tools.chdir(self.source_subfolder):
+        with tools.chdir(self._source_subfolder):
             pc_build = 'fixed-point' if self.fixed_point else 'floating-point'
             shutil.copy('opus.pc.in', 'opus.pc')
             tools.replace_in_file('opus.pc', '@VERSION@', self.version)
@@ -69,7 +68,7 @@ class OpusConan(ConanFile):
             tools.replace_in_file('opus.pc', '@exec_prefix@', '${prefix}')
             tools.replace_in_file('opus.pc', '@libdir@', '${exec_prefix}/lib')
             tools.replace_in_file('opus.pc', '@includedir@', '${prefix}/include')
-        with tools.chdir(os.path.join(self.source_subfolder, "win32", "VS2015")):
+        with tools.chdir(os.path.join(self._source_subfolder, "win32", "VS2015")):
             btype = "%s%s%s" % (self.settings.build_type, "DLL" if self.options.shared else "",
                                 "_fixed" if self.fixed_point else "")
             msbuild = MSBuild(self)
@@ -80,7 +79,7 @@ class OpusConan(ConanFile):
             if os.name == 'posix':
                 os.chmod(filename, os.stat(filename).st_mode | 0o111)
 
-        with tools.chdir(self.source_subfolder):
+        with tools.chdir(self._source_subfolder):
             if self.settings.os == "Macos":
                 tools.replace_in_file("configure", r"-install_name \$rpath/", "-install_name ")
             chmod_plus_x('configure')
@@ -102,13 +101,13 @@ class OpusConan(ConanFile):
 
     def package(self):
         self.copy("FindOPUS.cmake", ".", ".")
-        self.copy("COPYING", dst="licenses", src=self.source_subfolder, keep_path=False)
+        self.copy("COPYING", dst="licenses", src=self._source_subfolder, keep_path=False)
         if self.settings.compiler == 'Visual Studio':
             self.copy(pattern="*", dst=os.path.join("include", "opus"),
-                      src=os.path.join(self.source_subfolder, "include"), keep_path=False)
-            self.copy(pattern="*.dll", dst="bin", src=self.source_subfolder, keep_path=False)
-            self.copy(pattern="*.lib", dst="lib", src=self.source_subfolder, keep_path=False)
-            self.copy("*.pc", dst=os.path.join("lib", "pkgconfig"), src=self.source_subfolder)
+                      src=os.path.join(self._source_subfolder, "include"), keep_path=False)
+            self.copy(pattern="*.dll", dst="bin", src=self._source_subfolder, keep_path=False)
+            self.copy(pattern="*.lib", dst="lib", src=self._source_subfolder, keep_path=False)
+            self.copy("*.pc", dst=os.path.join("lib", "pkgconfig"), src=self._source_subfolder)
             self.copy(pattern="**.pdb", dst="bin", keep_path=False)
 
     def package_info(self):
