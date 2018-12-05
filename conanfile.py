@@ -33,14 +33,18 @@ class OpusConan(ConanFile):
                                        "Visual Studio 2015 or higher.")
         if self.settings.compiler == "Visual Studio" and not self.options.shared:
             self.options.remove("fixed_point")
+        
+        config_scheme(self)
 
     def config_options(self):
         if self.settings.os == "Windows":
             self.options.remove("fPIC")
 
     def source(self):
-        source_url = "https://archive.mozilla.org/pub/opus"
-        tools.get("{0}/{1}-{2}.tar.gz".format(source_url, self.name, self.version))
+        #source_url = "https://archive.mozilla.org/pub/opus"
+        #tools.get("{0}/{1}-{2}.tar.gz".format(source_url, self.name, self.version))
+        url_ = "https://github.com/xiph/opus/archive/v{version}.tar.gz".format(version=self.version)
+        tools.get(url_)
         extracted_dir = self.name + "-" + self.version
         os.rename(extracted_dir, self._source_subfolder)
         # exclude opus_compare.c from build (it has main function)
